@@ -1,4 +1,4 @@
-# sonjinwo
+# sonpro
 
 
 ## 대출 상환 계산기
