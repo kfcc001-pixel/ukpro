@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#175cd3">
+  <title>업무 FAQ 검색</title>
+  <style>
+    :root {
+      --blue: #175cd3;
+      --blue-dark: #123b7a;
+      --blue-light: #eff6ff;
+      --sky: #58a6e7;
+      --ink: #172235;
+      --muted: #64748b;
+      --line: #dce5ef;
+      --canvas: #f4f7fb;
+      --surface: #ffffff;
+      --shadow: 0 14px 38px rgba(30, 64, 110, .09);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
+      line-height: 1.6;
+      word-break: keep-all;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid rgba(88, 166, 231, .38);
+      outline-offset: 2px;
+    }
+
+    .topbar {
+      min-height: 68px;
+      color: #fff;
+      background: linear-gradient(118deg, #123b7a 0%, #175cd3 72%, #2784d8 100%);
+    }
+    .topbar-inner {
+      width: min(1040px, calc(100% - 40px));
+      min-height: 68px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .service-name { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 800; }
+    .service-mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.62);
+      border-radius: 11px;
+      background: rgba(255,255,255,.12);
+    }
+    .privacy-note { color: #dbeafe; font-size: 12px; }
+
+    main { width: min(1040px, calc(100% - 40px)); margin: 42px auto 64px; }
+    .hero { margin-bottom: 27px; }
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 850;
+      letter-spacing: .12em;
+    }
+    h1 { margin: 0; font-size: clamp(29px, 5vw, 42px); line-height: 1.25; letter-spacing: -.04em; }
+    .hero-description { margin: 10px 0 0; color: var(--muted); font-size: 15px; }
+
+    .search-panel {
+      padding: 25px;
+      border: 1px solid rgba(211, 224, 236, .95);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .search-label { display: block; margin-bottom: 9px; font-size: 14px; font-weight: 800; }
+    .search-box { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
+    .search-input-wrap { position: relative; }
+    .search-icon {
+      width: 21px;
+      height: 21px;
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #718096;
+      pointer-events: none;
+    }
+    #searchInput {
+      width: 100%;
+      height: 54px;
+      padding: 0 48px 0 49px;
+      border: 1px solid #cbd8e6;
+      border-radius: 12px;
+      color: var(--ink);
+      background: #fff;
+      font-size: 16px;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    #searchInput::placeholder { color: #95a2b1; }
+    #searchInput:hover { border-color: #9eb6ce; }
+    #searchInput:focus { border-color: var(--sky); box-shadow: 0 0 0 4px rgba(88,166,231,.13); outline: 0; }
+    .clear-button {
+      width: 32px;
+      height: 32px;
+      display: none;
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      border-radius: 50%;
+      color: #65758a;
+      background: #eef2f6;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .clear-button.visible { display: grid; place-items: center; }
+    .search-button {
+      min-width: 98px;
+      height: 54px;
+      border: 0;
+      border-radius: 12px;
+      color: #fff;
+      background: linear-gradient(120deg, var(--blue), #247bd3);
+      box-shadow: 0 7px 16px rgba(23,92,211,.18);
+      font-weight: 800;
+    }
+    .search-button:hover { filter: brightness(.96); }
+
+    .category-area { margin-top: 21px; }
+    .category-label { display: block; margin-bottom: 10px; color: #39475a; font-size: 13px; font-weight: 800; }
+    .categories { display: flex; flex-wrap: wrap; gap: 8px; }
+    .category-button {
+      min-width: 66px;
+      min-height: 40px;
+      padding: 0 17px;
+      border: 1px solid #d5e0eb;
+      border-radius: 999px;
+      color: #526276;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 750;
+      transition: .16s ease;
+    }
+    .category-button:hover { color: var(--blue); border-color: #9fc2e8; background: #f6fbff; }
+    .category-button.active { color: #fff; border-color: var(--blue); background: var(--blue); box-shadow: 0 4px 11px rgba(23,92,211,.17); }
+
+    .results-section { margin-top: 31px; }
+    .results-head { min-height: 43px; display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 11px; }
+    .results-title { margin: 0; font-size: 19px; letter-spacing: -.025em; }
+    .count { color: var(--blue); }
+    .reset-button {
+      min-height: 38px;
+      padding: 0 15px;
+      border: 1px solid #cbd9e7;
+      border-radius: 9px;
+      color: var(--blue-dark);
+      background: #fff;
+      font-size: 13px;
+      font-weight: 750;
+    }
+    .reset-button:hover { border-color: #93b9de; background: var(--blue-light); }
+    .result-list { display: grid; gap: 12px; }
+    .faq-card {
+      padding: 21px 23px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--surface);
+      box-shadow: 0 5px 18px rgba(30,64,110,.04);
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .faq-card:hover { transform: translateY(-1px); border-color: #c0d8ed; box-shadow: 0 9px 24px rgba(30,64,110,.07); }
+    .faq-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+    .question { margin: 0; font-size: 16px; font-weight: 820; letter-spacing: -.015em; }
+    .question::before { content: "Q"; margin-right: 10px; color: var(--blue); font-weight: 900; }
+    .category-badge {
+      flex: 0 0 auto;
+      padding: 4px 10px;
+      border-radius: 999px;
+      color: var(--blue);
+      background: var(--blue-light);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .answer {
+      margin: 15px 0 0;
+      padding: 14px 16px;
+      border-left: 3px solid #86bce9;
+      border-radius: 0 9px 9px 0;
+      color: #405167;
+      background: #f8fbfe;
+      font-size: 14px;
+    }
+    .answer::before { content: "A"; margin-right: 9px; color: #377cb6; font-weight: 900; }
+    mark { padding: 0 2px; border-radius: 3px; color: inherit; background: #ffe58f; }
+
+    .empty-state {
+      display: none;
+      min-height: 245px;
+      padding: 42px 25px;
+      place-items: center;
+      text-align: center;
+      border: 1px dashed #c8d7e6;
+      border-radius: 16px;
+      background: #fff;
+    }
+    .empty-state.visible { display: grid; }
+    .empty-icon {
+      width: 58px;
+      height: 58px;
+      margin: 0 auto 17px;
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      color: var(--blue);
+      background: var(--blue-light);
+      font-size: 25px;
+      font-weight: 900;
+    }
+    .empty-title { margin: 0; font-size: 17px; font-weight: 850; }
+    .empty-description { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+    .data-note { margin: 20px 2px 0; color: #76869a; font-size: 12px; }
+
+    @media (max-width: 620px) {
+      .topbar-inner, main { width: min(100% - 28px, 1040px); }
+      .privacy-note { display: none; }
+      main { margin-top: 29px; }
+      .search-panel { padding: 20px 16px; }
+      .search-box { grid-template-columns: 1fr; }
+      .search-button { width: 100%; }
+      .categories { display: grid; grid-template-columns: repeat(3, 1fr); }
+      .category-button { width: 100%; padding-inline: 10px; }
+      .faq-card { padding: 18px 16px; }
+      .faq-top { gap: 10px; }
+      .question { font-size: 15px; }
+      .answer { padding: 12px 13px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="service-name"><span class="service-mark" aria-hidden="true">?</span><span>사내 업무지원</span></div>
+      <span class="privacy-note">등록된 FAQ 데이터 기반 검색</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="pageTitle">
+      <p class="eyebrow">WORK FAQ HELPER</p>
+      <h1 id="pageTitle">업무 FAQ 검색</h1>
+      <p class="hero-description">궁금한 업무 내용을 검색하거나 분류별로 빠르게 찾아보세요.</p>
+    </section>
+
+    <form class="search-panel" id="searchForm" role="search">
+      <label class="search-label" for="searchInput">FAQ 검색</label>
+      <div class="search-box">
+        <div class="search-input-wrap">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          <input id="searchInput" type="search" placeholder="질문이나 키워드를 입력하세요." autocomplete="off" aria-controls="resultList" aria-describedby="resultCount">
+          <button class="clear-button" id="clearButton" type="button" aria-label="검색어 지우기">×</button>
+        </div>
+        <button class="search-button" type="submit">검색</button>
+      </div>
+
+      <div class="category-area">
+        <span class="category-label" id="categoryLabel">분류</span>
+        <div class="categories" role="group" aria-labelledby="categoryLabel">
+          <button class="category-button active" type="button" data-category="전체" aria-pressed="true">전체</button>
+          <button class="category-button" type="button" data-category="교육" aria-pressed="false">교육</button>
+          <button class="category-button" type="button" data-category="문서" aria-pressed="false">문서</button>
+          <button class="category-button" type="button" data-category="IT" aria-pressed="false">IT</button>
+          <button class="category-button" type="button" data-category="보안" aria-pressed="false">보안</button>
+        </div>
+      </div>
+    </form>
+
+    <section class="results-section" aria-labelledby="resultsHeading">
+      <div class="results-head">
+        <h2 class="results-title" id="resultsHeading">검색 결과 <span class="count" id="resultCount" aria-live="polite">5건</span></h2>
+        <button class="reset-button" id="resetButton" type="button">전체보기</button>
+      </div>
+      <div class="result-list" id="resultList"></div>
+      <div class="empty-state" id="emptyState" role="status">
+        <div>
+          <div class="empty-icon" aria-hidden="true">!</div>
+          <p class="empty-title">등록된 FAQ에서 답변을 찾을 수 없습니다.</p>
+          <p class="empty-description">관련 담당부서 또는 공식 안내자료를 확인해 주세요.</p>
+        </div>
+      </div>
+      <p class="data-note">※ 이 도우미는 등록된 FAQ만 검색하며, FAQ에 없는 답변을 새로 생성하지 않습니다.</p>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // 첨부된 FAQ JSON의 항목만 그대로 사용합니다.
+      const faqData = [
+        {
+          category: '교육',
+          question: '교육 신청은 어디에서 하나요?',
+          answer: '교육 포털의 과정 검색 후 신청 메뉴를 사용합니다.'
+        },
+        {
+          category: '교육',
+          question: '신청한 교육을 취소하려면 어떻게 하나요?',
+          answer: '신청내역에서 취소 가능 여부를 확인합니다.'
+        },
+        {
+          category: '문서',
+          question: '주간 업무보고에는 무엇을 넣어야 하나요?',
+          answer: '주요 실적, 이슈, 다음 주 계획을 중심으로 작성합니다.'
+        },
+        {
+          category: 'IT',
+          question: '사내 시스템 접속이 되지 않습니다.',
+          answer: '네트워크, 브라우저, 계정 상태를 순서대로 확인합니다.'
+        },
+        {
+          category: '보안',
+          question: 'ChatGPT에 내부 업무자료를 넣어도 되나요?',
+          answer: '교육에서는 합성자료를 사용하고, 실제 자료는 조직의 보안 및 AI 사용 기준을 먼저 확인합니다.'
+        }
+      ];
+
+      const searchForm = document.querySelector('#searchForm');
+      const searchInput = document.querySelector('#searchInput');
+      const clearButton = document.querySelector('#clearButton');
+      const resetButton = document.querySelector('#resetButton');
+      const resultList = document.querySelector('#resultList');
+      const resultCount = document.querySelector('#resultCount');
+      const emptyState = document.querySelector('#emptyState');
+      const categoryButtons = [...document.querySelectorAll('.category-button')];
+      let selectedCategory = '전체';
+
+      function normalized(text) {
+        return String(text).trim().toLocaleLowerCase('ko-KR');
+      }
+
+      function appendHighlightedText(container, text, keyword) {
+        const cleanKeyword = keyword.trim();
+        if (!cleanKeyword) {
+          container.textContent = text;
+          return;
+        }
+
+        const lowerText = text.toLocaleLowerCase('ko-KR');
+        const lowerKeyword = cleanKeyword.toLocaleLowerCase('ko-KR');
+        let cursor = 0;
+        let matchIndex = lowerText.indexOf(lowerKeyword, cursor);
+
+        while (matchIndex !== -1) {
+          container.append(document.createTextNode(text.slice(cursor, matchIndex)));
+          const mark = document.createElement('mark');
+          mark.textContent = text.slice(matchIndex, matchIndex + cleanKeyword.length);
+          container.append(mark);
+          cursor = matchIndex + cleanKeyword.length;
+          matchIndex = lowerText.indexOf(lowerKeyword, cursor);
+        }
+        container.append(document.createTextNode(text.slice(cursor)));
+      }
+
+      function makeFaqCard(item, keyword) {
+        const article = document.createElement('article');
+        article.className = 'faq-card';
+
+        const top = document.createElement('div');
+        top.className = 'faq-top';
+
+        const question = document.createElement('h3');
+        question.className = 'question';
+        appendHighlightedText(question, item.question, keyword);
+
+        const badge = document.createElement('span');
+        badge.className = 'category-badge';
+        appendHighlightedText(badge, item.category, keyword);
+
+        const answer = document.createElement('p');
+        answer.className = 'answer';
+        appendHighlightedText(answer, item.answer, keyword);
+
+        top.append(question, badge);
+        article.append(top, answer);
+        return article;
+      }
+
+      function render() {
+        const keyword = searchInput.value.trim();
+        const query = normalized(keyword);
+        const filtered = faqData.filter((item) => {
+          const categoryMatch = selectedCategory === '전체' || item.category === selectedCategory;
+          const searchableText = normalized(`${item.question} ${item.answer} ${item.category}`);
+          return categoryMatch && (!query || searchableText.includes(query));
+        });
+
+        const fragment = document.createDocumentFragment();
+        filtered.forEach((item) => fragment.append(makeFaqCard(item, keyword)));
+        resultList.replaceChildren(fragment);
+        resultCount.textContent = `${filtered.length}건`;
+        resultList.hidden = filtered.length === 0;
+        emptyState.classList.toggle('visible', filtered.length === 0);
+        clearButton.classList.toggle('visible', Boolean(keyword));
+      }
+
+      function chooseCategory(category) {
+        selectedCategory = category;
+        categoryButtons.forEach((button) => {
+          const selected = button.dataset.category === category;
+          button.classList.toggle('active', selected);
+          button.setAttribute('aria-pressed', String(selected));
+        });
+        render();
+      }
+
+      searchForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        render();
+      });
+
+      searchInput.addEventListener('input', render);
+
+      clearButton.addEventListener('click', () => {
+        searchInput.value = '';
+        searchInput.focus();
+        render();
+      });
+
+      categoryButtons.forEach((button) => {
+        button.addEventListener('click', () => chooseCategory(button.dataset.category));
+      });
+
+      resetButton.addEventListener('click', () => {
+        searchInput.value = '';
+        chooseCategory('전체');
+        searchInput.focus();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
