@@ -1,0 +1,75 @@
+로그인 보호 기능을 포함한 전체 조회 대시보드를 만들었습니다.
+
+supabase-fullscan-dashboard.html
+
+테이블명을 직접 입력해 전체 행 조회
+현재 테이블 6개만 허용
+Supabase 이메일/비밀번호 로그인 및 로그아웃
+로그인 전 대시보드 접근 차단
+service role 키 미사용
+
+현재 모든 테이블은 RLS가 켜져 있지만 SELECT 정책이 없어서, 실제 데이터 조회 전에는 관리자용 RLS 정책을 별도로 설정해야 합니다. 금융·회원 데이터가 포함되어 있어 전체 사용자에게 조회 권한을 여는 정책은 적용하지 않았습니다.
+
+supabase-fullscan-dashboard.html
+HTML
+모든 테이블을 fullscan 해서 분석 결과를 대쉬보드 형태로 만들어줘
+이 대쉬보드는 html 형태로 만들어주면 좋겠어
+
+전수 집계 기반 HTML 분석 대시보드를 만들었습니다.
+
+supabase-fullscan-analysis-dashboard.html
+
+포함 내용:
+
+6개 테이블 핵심 건수
+지점별 예수금·대출잔액·예대율
+예금 상품별 잔액 구성
+월별 입출금 흐름
+대출 유형·상태별 현황 및 연체 규모
+금융기관별 최고 우대금리 비교
+개인정보와 개별 거래·계좌 원문은 제외한 안전한 집계 분석
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Supabase 전수 분석 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    :root{--ink:#14283d;--navy:#092846;--blue:#1279c9;--mint:#17a889;--amber:#ed9b35;--red:#d4535a;--bg:#f4f7fa;--line:#dce5ed}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Inter,"Malgun Gothic",system-ui,sans-serif;color:var(--ink)}header{padding:35px max(24px,calc((100vw - 1200px)/2));background:linear-gradient(120deg,#092846,#155b91);color:white}h1{font-size:28px;margin:0 0 8px}header p{margin:0;color:#cde5f7;font-size:14px}.wrap{max-width:1200px;margin:25px auto;padding:0 24px}.note{padding:13px 16px;background:#edf5fb;border:1px solid #cce0ef;border-radius:10px;color:#31526b;font-size:13px;line-height:1.55}.grid{display:grid;gap:18px;margin:18px 0}.cards{grid-template-columns:repeat(6,1fr)}.two{grid-template-columns:repeat(2,1fr)}.card,.panel{background:white;border:1px solid var(--line);border-radius:13px;box-shadow:0 5px 18px #173c5809}.card{padding:18px}.card .label{font-size:12px;color:#64778a;font-weight:700}.card .value{font-size:28px;font-weight:800;margin-top:9px;letter-spacing:-.7px}.card .sub{font-size:12px;color:#698096;margin-top:5px}.panel{padding:20px;min-width:0}.panel h2{font-size:16px;margin:0 0 16px}.chart{height:290px;position:relative}.wide{grid-column:span 2}table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;background:#f5f8fb;color:#51677c}th,td{padding:11px 12px;border-bottom:1px solid var(--line)}td.num{text-align:right;font-variant-numeric:tabular-nums}.risk{background:#fff4f2;border:1px solid #f4cfca;border-radius:10px;padding:16px}.risk h3{margin:0 0 7px;font-size:14px;color:#a53b3b}.risk p{margin:0;font-size:13px;line-height:1.55}.tag{display:inline-block;border-radius:99px;padding:3px 8px;font-size:11px;font-weight:800;background:#e8f5ef;color:#0b765a}.foot{color:#718398;font-size:12px;padding:8px 0 35px}@media(max-width:900px){.cards{grid-template-columns:repeat(3,1fr)}.two{grid-template-columns:1fr}.wide{grid-column:span 1}}@media(max-width:520px){.wrap{padding:0 14px}.cards{grid-template-columns:repeat(2,1fr)}header{padding:28px 18px}.card .value{font-size:24px}}
+  </style>
+</head>
+<body>
+<header><h1>Supabase 전수 분석 대시보드</h1><p>지점 · 회원 · 예금 · 대출 · 거래 · 금리 테이블 집계 분석</p></header>
+<main class="wrap">
+  <div class="note">분석 기준일: 2026-09-10 · 6개 테이블을 전수 스캔하여 집계했습니다. 개인정보(성명·생년월일·전화번호)와 개별 계좌·거래 내역은 표시하지 않습니다.</div>
+  <section class="grid cards" id="cards"></section>
+  <section class="grid two"><article class="panel"><h2>지점별 예수금 · 대출잔액</h2><div class="chart"><canvas id="branchChart"></canvas></div></article><article class="panel"><h2>예금 상품별 잔액 구성</h2><div class="chart"><canvas id="accountChart"></canvas></div></article></section>
+  <section class="grid two"><article class="panel"><h2>월별 입·출금 흐름 (2025~2026)</h2><div class="chart"><canvas id="flowChart"></canvas></div></article><article class="panel"><h2>대출 현황</h2><div class="chart"><canvas id="loanChart"></canvas></div></article></section>
+  <section class="grid two"><article class="panel wide"><h2>지점별 운영 현황</h2><div style="overflow:auto"><table id="branchTable"></table></div></article></section>
+  <section class="grid two"><article class="panel"><h2>대표 정기예금 최고 우대금리</h2><div class="chart"><canvas id="rateChart"></canvas></div></article><article class="panel"><h2>분석 요약</h2><div class="risk" id="insight"></div></article></section>
+  <p class="foot">금액 단위: 원. 금리 단위: 연 %. 거래의 ‘이체’는 입·출금 합계에서 제외하여 별도 건수로 집계했습니다.</p>
+</main>
+<script>
+const d={
+ counts:{branches:5,members:40,deposit_accounts:54,loans:18,transactions:294,bank_rates:6},
+ branch:[['서울중앙지점','서울',9,11,13900000,3,210610000],['경기동부지점','경기',8,11,19870000,4,290580000],['충청서부지점','충청',7,9,17670000,3,205830000],['영남남부지점','영남',9,12,14010000,2,222240000],['호남북부지점','호남',7,11,8780000,6,466910000]],
+ accounts:[['자유적금',18,23280000],['정기적금',18,21780000],['정기예금',10,16300000],['보통예금',8,12870000]],
+ loans:[['전세자금대출','정상',7,509880000],['전세자금대출','연체',4,432370000],['신용대출','정상',4,191410000],['담보대출','완제',1,105730000],['신용대출','완제',1,79060000],['전세자금대출','완제',1,77720000]],
+ rates:[['덕양신협','상호금융',4.2],['OK저축은행','저축은행',3.9],['SBI저축은행','저축은행',3.8],['신한은행','시중은행',3.3],['KB국민은행','시중은행',3.2]],
+ flow:[['2025-01',260000,250000],['2025-02',40000,30000],['2025-03',1250000,60000],['2025-04',370000,220000],['2025-05',730000,690000],['2025-06',930000,600000],['2025-07',1060000,620000],['2025-08',1040000,300000],['2025-09',1320000,700000],['2025-10',2130000,790000],['2025-11',670000,850000],['2025-12',60000,800000],['2026-01',1260000,200000],['2026-02',470000,630000],['2026-03',790000,490000],['2026-04',460000,140000],['2026-05',390000,210000],['2026-06',630000,530000],['2026-07',720000,750000],['2026-08',150000,670000]]
+};
+const won=n=>new Intl.NumberFormat('ko-KR').format(n)+'원'; const m=n=>(n/1e6).toFixed(1)+'M'; const totalDeposit=d.accounts.reduce((s,x)=>s+x[2],0),totalLoan=d.loans.reduce((s,x)=>s+x[3],0),overdue=d.loans.filter(x=>x[1]=='연체').reduce((s,x)=>s+x[3],0),overdueN=d.loans.filter(x=>x[1]=='연체').reduce((s,x)=>s+x[2],0);
+const cards=[['지점',d.counts.branches+'개','운영 거점'],['회원',d.counts.members+'명','전체 회원'],['예금계좌',d.counts.deposit_accounts+'개',won(totalDeposit)],['대출잔액',m(totalLoan),d.counts.loans+'건'],['거래',d.counts.transactions+'건','집계 대상 거래'],['연체 대출',m(overdue),overdueN+'건 · 주의 필요']];
+document.querySelector('#cards').innerHTML=cards.map((x,i)=>`<div class="card"><div class="label">${x[0]}</div><div class="value" style="color:${i===5?'#c34a4a':'#14283d'}">${x[1]}</div><div class="sub">${x[2]}</div></div>`).join('');
+Chart.defaults.font.family='Inter, Malgun Gothic, sans-serif';Chart.defaults.color='#607387'; const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}};
+new Chart(document.querySelector('#branchChart'),{type:'bar',data:{labels:d.branch.map(x=>x[0].replace('지점','')),datasets:[{label:'예수금',data:d.branch.map(x=>x[4]/1e6),backgroundColor:'#2386ce'},{label:'대출잔액',data:d.branch.map(x=>x[6]/1e6),backgroundColor:'#f0a13c'}]},options:{...base,scales:{y:{title:{display:true,text:'백만원'}}}}});
+new Chart(document.querySelector('#accountChart'),{type:'doughnut',data:{labels:d.accounts.map(x=>x[0]),datasets:[{data:d.accounts.map(x=>x[2]),backgroundColor:['#137bc8','#17a889','#e8a13a','#805ad5'],borderWidth:0}]},options:{...base,cutout:'62%',plugins:{...base.plugins,tooltip:{callbacks:{label:c=>`${c.label}: ${won(c.raw)}`}}}}});
+new Chart(document.querySelector('#flowChart'),{type:'line',data:{labels:d.flow.map(x=>x[0]),datasets:[{label:'입금',data:d.flow.map(x=>x[1]/1e6),borderColor:'#17a889',backgroundColor:'#17a88922',fill:true,tension:.32},{label:'출금',data:d.flow.map(x=>x[2]/1e6),borderColor:'#d4535a',backgroundColor:'#d4535a11',fill:true,tension:.32}]},options:{...base,scales:{y:{title:{display:true,text:'백만원'}}}}});
+new Chart(document.querySelector('#loanChart'),{type:'bar',data:{labels:d.loans.map(x=>x[0]+' · '+x[1]),datasets:[{label:'대출잔액',data:d.loans.map(x=>x[3]/1e6),backgroundColor:d.loans.map(x=>x[1]=='연체'?'#d4535a':x[1]=='정상'?'#167bc2':'#95a7b8')}]},options:{...base,indexAxis:'y',scales:{x:{title:{display:true,text:'백만원'}}}}});
+new Chart(document.querySelector('#rateChart'),{type:'bar',data:{labels:d.rates.map(x=>x[0]),datasets:[{label:'최고 우대금리',data:d.rates.map(x=>x[2]),backgroundColor:d.rates.map(x=>x[1]=='시중은행'?'#2386ce':x[1]=='상호금융'?'#17a889':'#e8a13a')}]},options:{...base,scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
+document.querySelector('#branchTable').innerHTML='<thead><tr><th>지점</th><th>권역</th><th>회원</th><th>계좌</th><th>예수금</th><th>대출</th><th>대출잔액</th><th>예대율</th></tr></thead><tbody>'+d.branch.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td class="num">${x[2]}</td><td class="num">${x[3]}</td><td class="num">${won(x[4])}</td><td class="num">${x[5]}</td><td class="num">${won(x[6])}</td><td class="num"><span class="tag">${(x[6]/x[4]*100).toFixed(0)}%</span></td></tr>`).join('')+'</tbody>';
+document.querySelector('#insight').innerHTML=`<h3>우선 확인 사항</h3><p>총 대출잔액은 <b>${m(totalLoan)}</b>이며, 이 중 연체 상태는 <b>${m(overdue)} (${(overdue/totalLoan*100).toFixed(1)}%)</b>입니다. 호남북부지점은 예수금 ${m(8780000)} 대비 대출잔액 ${m(466910000)}으로 예대율이 가장 높습니다. 예금은 자유적금·정기적금이 전체 잔액의 <b>${((23280000+21780000)/totalDeposit*100).toFixed(1)}%</b>를 차지합니다.</p>`;
+</script>
+</body></html>
+supabase-fullscan-analysis-dashboard.html
+HTML
