@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Supabase 테이블 관리 대시보드</title>
+  <style>
+    :root { --ink:#14213d; --muted:#64748b; --line:#dbe3ee; --panel:#fff; --bg:#f4f7fb; --brand:#2563eb; --danger:#dc2626; }
+    * { box-sizing:border-box; } body { margin:0; font-family:Inter, Pretendard, system-ui, sans-serif; color:var(--ink); background:var(--bg); }
+    header { padding:32px max(24px,calc((100vw - 1180px)/2)); background:linear-gradient(120deg,#0f2e5d,#2563eb); color:#fff; }
+    h1 { margin:0 0 8px; font-size:clamp(24px,4vw,34px); } header p { margin:0; opacity:.86; }
+    main { max-width:1180px; margin:24px auto 48px; padding:0 24px; display:grid; gap:18px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:0 8px 24px rgba(15,23,42,.05); }
+    .connect { display:grid; grid-template-columns:2fr auto; gap:12px; align-items:end; }
+    label { display:grid; gap:7px; font-size:13px; font-weight:700; color:#334155; }
+    input, textarea, select { width:100%; border:1px solid #cbd5e1; border-radius:9px; padding:11px 12px; font:inherit; color:var(--ink); background:#fff; }
+    input:focus, textarea:focus, select:focus { outline:3px solid #bfdbfe; border-color:#60a5fa; }
+    button { border:0; border-radius:9px; padding:11px 14px; font:inherit; font-weight:750; cursor:pointer; background:var(--brand); color:#fff; }
+    button:hover { filter:brightness(.96); } button.secondary { background:#e8eef8; color:#1e3a5f; } button.danger { background:var(--danger); } button:disabled { opacity:.55; cursor:not-allowed; }
+    .toolbar { display:flex; gap:10px; align-items:end; flex-wrap:wrap; } .toolbar label { min-width:180px; flex:1; } .toolbar .small { flex:.45; min-width:135px; }
+    .status { min-height:21px; margin:4px 0 0; color:var(--muted); font-size:14px; } .status.error { color:#b91c1c; }
+    .hint { margin:0; color:var(--muted); font-size:13px; line-height:1.55; } code { background:#edf2f7; border-radius:4px; padding:1px 4px; }
+    .table-wrap { overflow:auto; max-height:550px; border:1px solid var(--line); border-radius:11px; } table { width:100%; border-collapse:collapse; font-size:14px; } th,td { padding:11px 12px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; } th { position:sticky; top:0; background:#f8fafc; z-index:1; color:#475569; font-size:12px; } td.json { max-width:300px; overflow:hidden; text-overflow:ellipsis; } tr:hover td { background:#f8fbff; } .actions { display:flex; gap:7px; } .actions button { padding:7px 10px; font-size:12px; }
+    .empty { padding:40px; text-align:center; color:var(--muted); }
+    dialog { border:0; border-radius:16px; padding:0; width:min(680px,calc(100vw - 32px)); box-shadow:0 24px 80px rgba(15,23,42,.28); } dialog::backdrop { background:rgba(15,23,42,.45); }
+    .modal { padding:22px; } .modal h2 { margin:0 0 8px; font-size:21px; } .modal textarea { min-height:260px; margin:14px 0; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:13px; line-height:1.5; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:9px; } .warning { color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:9px; padding:10px; font-size:13px; }
+    @media (max-width:760px) { .connect { grid-template-columns:1fr; } .toolbar { align-items:stretch; } .toolbar label,.toolbar .small { flex:auto; width:100%; } }
+  </style>
+</head>
+<body>
+  <header><h1>Supabase 테이블 관리</h1><p>등록 · 조회 · 수정 · 삭제를 하나의 화면에서 처리합니다.</p></header>
+  <main>
+    <section class="card" id="workspace">
+      <div class="toolbar">
+        <label>테이블명<select id="tableName"><option value="branches">branches</option><option value="members">members</option><option value="deposit_accounts">deposit_accounts</option><option value="loans">loans</option><option value="transactions">transactions</option><option value="bank_rates">bank_rates</option></select></label>
+        <label class="small">기본키 열<input id="pkColumn" value="branch_id" readonly /></label>
+        <button id="load" class="secondary">조회</button>
+        <button id="add">+ 새 행 등록</button>
+      </div>
+      <p class="hint">테스트 DB에 자동 연결되었습니다. 테이블을 선택해 CRUD를 수행하세요.</p>
+      <p class="status" id="dataStatus"></p>
+      <div class="table-wrap" id="result"><div class="empty">연결 후 테이블명을 입력하고 조회하세요.</div></div>
+    </section>
+  </main>
+
+  <dialog id="editor"><form method="dialog" class="modal" id="editorForm">
+    <h2 id="editorTitle">새 행 등록</h2>
+    <p class="warning" id="editorWarning">입력값은 JSON 객체여야 합니다. 예: {"name":"홍길동","balance":3000000}</p>
+    <textarea id="jsonEditor" spellcheck="false" aria-label="JSON 데이터"></textarea>
+    <div class="modal-actions"><button class="secondary" value="cancel">취소</button><button id="save" value="default">저장</button></div>
+  </form></dialog>
+
+  <script>
+    const FIXED_SUPABASE_URL = 'https://nxjqmfooxmyqufkzgpre.supabase.co';
+    const FIXED_SUPABASE_KEY = 'sb_publishable_8pM7FWQIBXFKLHWj0xBKlQ_it3zttv_';
+    const PRIMARY_KEYS = { branches:'branch_id', members:'member_id', deposit_accounts:'account_id', loans:'loan_id', transactions:'transaction_id', bank_rates:'id' };
+    const state = { url:FIXED_SUPABASE_URL, key:FIXED_SUPABASE_KEY, rows:[], table:'branches', pk:'branch_id', editing:null };
+    const $ = id => document.getElementById(id);
+    const setStatus = (id, message, error=false) => { const el=$(id); el.textContent=message; el.className='status'+(error?' error':''); };
+    const validIdentifier = value => /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const base = () => state.url.replace(/\/$/,'') + '/rest/v1/' + encodeURIComponent(state.table);
+    const headers = extra => ({ apikey:state.key, Authorization:`Bearer ${state.key}`, 'Content-Type':'application/json', Prefer:'return=representation', ...extra });
+    async function request(url, options={}) {
+      const res = await fetch(url, options); const text = await res.text();
+      let body; try { body = text ? JSON.parse(text) : null; } catch { body=text; }
+      if (!res.ok) throw new Error(body?.message || body?.hint || `${res.status} ${res.statusText}`);
+      return body;
+    }
+    function configFromInputs() {
+      state.table = $('tableName').value.trim(); state.pk = $('pkColumn').value.trim();
+      if (!validIdentifier(state.table) || !validIdentifier(state.pk)) throw new Error('테이블명과 기본키 열은 영문, 숫자, 밑줄만 사용할 수 있습니다.');
+    }
+    function render() {
+      const box=$('result');
+      if (!state.rows.length) { box.innerHTML='<div class="empty">조회된 데이터가 없습니다.</div>'; return; }
+      const columns=[...new Set(state.rows.flatMap(row => Object.keys(row)))];
+      box.innerHTML=`<table><thead><tr>${columns.map(c=>`<th>${esc(c)}</th>`).join('')}<th>작업</th></tr></thead><tbody>${state.rows.map((row,i)=>`<tr>${columns.map(c=>{const v=row[c]; const text=typeof v==='object'&&v!==null?JSON.stringify(v):v; return `<td class="json" title="${esc(text)}">${esc(text)}</td>`}).join('')}<td><div class="actions"><button class="secondary" data-edit="${i}">수정</button><button class="danger" data-delete="${i}">삭제</button></div></td></tr>`).join('')}</tbody></table>`;
+      box.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEditor(Number(b.dataset.edit)));
+      box.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeRow(Number(b.dataset.delete)));
+    }
+    async function loadRows() {
+      try { configFromInputs(); setStatus('dataStatus','조회 중…');
+        state.rows=await request(base()+'?select=*&limit=100',{headers:headers()}); render(); setStatus('dataStatus',`${state.rows.length}건을 조회했습니다. (최대 100건)`);
+      } catch(e) { setStatus('dataStatus',e.message,true); }
+    }
+    function openEditor(index=null) {
+      try { configFromInputs(); } catch(e) { setStatus('dataStatus',e.message,true); return; }
+      state.editing=index; const row=index===null ? {} : state.rows[index];
+      $('editorTitle').textContent=index===null?'새 행 등록':'행 수정'; $('jsonEditor').value=JSON.stringify(row,null,2); $('editor').showModal();
+    }
+    async function saveRow(event) {
+      event.preventDefault(); let payload;
+      try { payload=JSON.parse($('jsonEditor').value); if (!payload || Array.isArray(payload) || typeof payload!=='object') throw new Error(); }
+      catch { setStatus('dataStatus','JSON 객체 형식이 올바르지 않습니다.',true); return; }
+      try {
+        if (state.editing===null) await request(base(),{method:'POST',headers:headers(),body:JSON.stringify(payload)});
+        else { const original=state.rows[state.editing], value=original[state.pk]; if (value===undefined || value===null) throw new Error(`선택 행에 기본키 열 '${state.pk}' 값이 없습니다.`);
+          delete payload[state.pk]; await request(base()+`?${encodeURIComponent(state.pk)}=eq.${encodeURIComponent(value)}`,{method:'PATCH',headers:headers(),body:JSON.stringify(payload)}); }
+        $('editor').close(); setStatus('dataStatus',state.editing===null?'등록했습니다.':'수정했습니다.'); await loadRows();
+      } catch(e) { setStatus('dataStatus',e.message,true); }
+    }
+    async function removeRow(index) {
+      try { configFromInputs(); const row=state.rows[index], value=row[state.pk]; if (value===undefined || value===null) throw new Error(`선택 행에 기본키 열 '${state.pk}' 값이 없습니다.`);
+        if (!confirm(`${state.pk} = ${value} 행을 영구 삭제할까요?`)) return;
+        await request(base()+`?${encodeURIComponent(state.pk)}=eq.${encodeURIComponent(value)}`,{method:'DELETE',headers:headers()}); setStatus('dataStatus','삭제했습니다.'); await loadRows();
+      } catch(e) { setStatus('dataStatus',e.message,true); }
+    }
+    function applyTableMeta() { $('pkColumn').value = PRIMARY_KEYS[$('tableName').value]; }
+    $('tableName').addEventListener('change', () => { applyTableMeta(); loadRows(); });
+    $('load').onclick=loadRows; $('add').onclick=()=>openEditor(); $('editorForm').addEventListener('submit',saveRow);
+    applyTableMeta(); loadRows();
+  </script>
+</body>
+</html>
